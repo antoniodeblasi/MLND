@@ -1,5 +1,6 @@
 import random
 import math
+import numpy as np
 from environment import Agent, Environment
 from planner import RoutePlanner
 from simulator import Simulator
@@ -24,7 +25,6 @@ class LearningAgent(Agent):
         ###########
         # Set any additional class parameters as needed
 
-
     def reset(self, destination=None, testing=False):
         """ The reset function is called at the beginning of each trial.
             'testing' is set to True if testing trials are being used
@@ -39,6 +39,11 @@ class LearningAgent(Agent):
         # Update epsilon using a decay function of your choice
         # Update additional class parameters as needed
         # If 'testing' is True, set epsilon and alpha to 0
+        if testing:
+            self.alpha = 0
+            self.epsilon = 0
+        else:
+            self.epsilon = self.epsilon - 0.05 #max(0, self.epsilon - 0.025) 
 
         return None
 
@@ -60,8 +65,14 @@ class LearningAgent(Agent):
         #   If it is not, create a dictionary in the Q-table for the current 'state'
         #   For each action, set the Q-value for the state-action pair to 0
         
-        state = None
-
+        state = (waypoint, 
+                 inputs['light'],
+                 inputs['oncoming'],
+                 inputs['left'],
+                 inputs['right']
+                 #,deadline
+                 )
+        
         return state
 
 
@@ -74,7 +85,7 @@ class LearningAgent(Agent):
         ###########
         # Calculate the maximum Q-value of all actions for a given state
 
-        maxQ = None
+        maxQ = max(self.Q[state], key=self.Q[state].get)
 
         return maxQ 
 
@@ -88,6 +99,10 @@ class LearningAgent(Agent):
         # When learning, check if the 'state' is not in the Q-table
         # If it is not, create a new dictionary for that state
         #   Then, for each action available, set the initial Q-value to 0.0
+        
+        if self.learning:
+            if not self.Q.has_key(state):
+                self.Q[state] = {v: 0 for v in self.valid_actions}
 
         return
 
@@ -110,6 +125,11 @@ class LearningAgent(Agent):
  
         if not self.learning:
             action = random.choice(self.env.valid_actions)
+        else:
+            if np.random.choice(a=[False, True], p=[max(0.0, self.epsilon), min(1.0, 1-self.epsilon)]):
+                self.get_maxQ(state)
+            else:
+                action = random.choice(self.env.valid_actions)
             
         return action
 
@@ -124,6 +144,9 @@ class LearningAgent(Agent):
         ###########
         # When learning, implement the value iteration update rule
         #   Use only the learning rate 'alpha' (do not use the discount factor 'gamma')
+        if self.learning:
+            self.Q[state][action] += self.alpha*(reward - self.Q[state][action])
+        
 
         return
 
@@ -152,7 +175,7 @@ def run():
     #   verbose     - set to True to display additional output from the simulation
     #   num_dummies - discrete number of dummy agents in the environment, default is 100
     #   grid_size   - discrete number of intersections (columns, rows), default is (8, 6)
-    env = Environment()
+    env = Environment(verbose=True)
     
     ##############
     # Create the driving agent
@@ -160,7 +183,7 @@ def run():
     #   learning   - set to True to force the driving agent to use Q-learning
     #    * epsilon - continuous value for the exploration factor, default is 1
     #    * alpha   - continuous value for the learning rate, default is 0.5
-    agent = env.create_agent(LearningAgent)
+    agent = env.create_agent(LearningAgent, learning=True)
     
     ##############
     # Follow the driving agent
@@ -175,7 +198,7 @@ def run():
     #   display      - set to False to disable the GUI if PyGame is enabled
     #   log_metrics  - set to True to log trial and simulation results to /logs
     #   optimized    - set to True to change the default log file name
-    sim = Simulator(env, display=True, update_delay=0.01, log_metrics=True)
+    sim = Simulator(env, display=False, update_delay=0.01, log_metrics=True)
     
     ##############
     # Run the simulator
