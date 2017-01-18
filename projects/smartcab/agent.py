@@ -5,13 +5,13 @@ from environment import Agent, Environment
 from planner import RoutePlanner
 from simulator import Simulator
 
-DELTA = 0.001
+DELTA = 0.0001
 
 class LearningAgent(Agent):
     """ An agent that learns to drive in the Smartcab world.
         This is the object you will be modifying. """ 
 
-    def __init__(self, env, learning=False, epsilon=1+DELTA, alpha=0.5):
+    def __init__(self, env, learning=False, epsilon=1.0+DELTA, alpha=0.5):
         super(LearningAgent, self).__init__(env)     # Set the agent in the evironment 
         self.planner = RoutePlanner(self.env, self)  # Create a route planner
         self.valid_actions = self.env.valid_actions  # The set of valid actions
@@ -27,6 +27,14 @@ class LearningAgent(Agent):
         ###########
         # Set any additional class parameters as needed
         self.F = dict()
+        self.E = dict()
+        for w in ['forward', 'left', 'right']:
+            for lt in ['red', 'green']: 
+                for o in Environment.valid_inputs['oncoming']:
+                    for l in Environment.valid_inputs['left']:
+                        for r in Environment.valid_inputs['right']:
+                            self.E[(w,lt,o,l,r)] = 1.0 
+        
 
     def reset(self, destination=None, testing=False):
         """ The reset function is called at the beginning of each trial.
@@ -46,7 +54,11 @@ class LearningAgent(Agent):
             self.alpha = 0
             self.epsilon = 0
         else:
+            #self.epsilon = 1.0 if self.epsilon == 0.0 else self.epsilon/(self.epsilon+1.0)  
             self.epsilon = self.epsilon - DELTA
+            #self.epsilon = max(self.E.values())
+            #self.epsilon = max(self.E.values())
+                
 
         return None
 
@@ -106,7 +118,7 @@ class LearningAgent(Agent):
             if not self.Q.has_key(state):
                 self.Q[state] = {a: 0.0 for a in self.valid_actions}
                 self.F[state] = {a: 0 for a in self.valid_actions}
-
+                
         return
 
 
@@ -130,18 +142,23 @@ class LearningAgent(Agent):
             action = random.choice(self.env.valid_actions)
             print "ACTION CHOOSE: randomly selected action {}".format(action)
         else:
-            action = None
-            if np.random.choice(a=[False, True], p=[max(0.0, self.epsilon), min(1.0, 1-self.epsilon)]):
+            #action = None
+            #epsilon = self.E[state]
+            epsilon = self.epsilon
+            if np.random.choice(a=[False, True], p=[max(0.0, epsilon), min(1.0, 1-epsilon)]):
                 action, maxQ = self.get_maxQ(state)
                 print "ACTION CHOOSE: selected action {} with max Q-value {}".format(action, maxQ)
             else:
-                if 0 in self.F[state].values():
-                    action = self.F[state].keys()[self.F[state].values().index(0)]
-                    print "ACTION CHOOSE: first time selected action {}".format(action)
-                else:   
-                    action = random.choice(self.env.valid_actions)
-                    print "ACTION CHOOSE: randomly selected action {}".format(action)
-            self.F[state][action] += 1
+                action = random.choice(self.env.valid_actions)
+                print "ACTION CHOOSE: randomly selected action {}".format(action)
+#                 if 0 in self.F[state].values():
+#                     action = self.F[state].keys()[self.F[state].values().index(0)]
+#                     print "ACTION CHOOSE: first time selected action {}".format(action)
+#                 else:   
+#                     action = random.choice(self.env.valid_actions)
+#                     print "ACTION CHOOSE: randomly selected action {}".format(action)
+#             self.F[state][action] += 1
+            #self.E[state] = self.E[state]/(self.E[state]+1)
             
         return action
 
@@ -186,7 +203,7 @@ def run():
     #   verbose     - set to True to display additional output from the simulation
     #   num_dummies - discrete number of dummy agents in the environment, default is 100
     #   grid_size   - discrete number of intersections (columns, rows), default is (8, 6)
-    env = Environment(verbose=True)
+    env = Environment(verbose=False)
     
     ##############
     # Create the driving agent
@@ -209,16 +226,17 @@ def run():
     #   display      - set to False to disable the GUI if PyGame is enabled
     #   log_metrics  - set to True to log trial and simulation results to /logs
     #   optimized    - set to True to change the default log file name
-    sim = Simulator(env, display=False, update_delay=0.01, log_metrics=True, optimized=True)
+    sim = Simulator(env, display=False, update_delay=0.0, log_metrics=True, optimized=True)
     
     ##############
     # Run the simulator
     # Flags:
-    #   tolerance  - epsilon tolerance before beginning testing, default is 0.05 
+    #   tolerance  - epsilon tolerance before beginning testing, default is 0.05  
     #   n_test     - discrete number of testing trials to perform, default is 0
-    sim.run(n_test=40, tolerance=0.001)
+    sim.run(n_test=100, tolerance=0.0001)
     
     print "Number of visited states: {}".format(len(agent.Q))
+    print "Min epsilon: {}, Max epsilon: {}".format(min(agent.E.values()), max(agent.E.values()))
 
 if __name__ == '__main__':
     run()
