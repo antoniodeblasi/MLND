@@ -4,9 +4,39 @@ import numpy as np
 from environment import Agent, Environment
 from planner import RoutePlanner
 from simulator import Simulator
+from numpy.f2py.auxfuncs import throw_error
 
 DELTA = 0.0001
 
+class ConstantAlpha():
+    def __init__(self, value):
+        if value < 0 or value > 1:
+            raise ValueError; 
+        self._value = value
+    
+    def __call__(self):
+        return self._value;
+
+
+class AverageAlpha():
+    def __init__(self):
+        self._value = 0
+    
+    def __call__(self):
+        self._value += 1
+        return 1.0/self._value
+
+
+class LinearDecayEpsilon():
+    def __init__(self, initial_value=1.0):
+        self._value = initial_value
+    
+    def __call__(self):
+        current_value = self._value
+        self._value -= self._value/(self._value + 1)
+        return current_value
+        
+        
 class LearningAgent(Agent):
     """ An agent that learns to drive in the Smartcab world.
         This is the object you will be modifying. """ 
