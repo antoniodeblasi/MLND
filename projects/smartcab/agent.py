@@ -1,42 +1,12 @@
 import random
-import math
 import numpy as np
 from environment import Agent, Environment
 from planner import RoutePlanner
 from simulator import Simulator
-from numpy.f2py.auxfuncs import throw_error
 
 DELTA = 0.0001
 
-class ConstantAlpha():
-    def __init__(self, value):
-        if value < 0 or value > 1:
-            raise ValueError; 
-        self._value = value
-    
-    def __call__(self):
-        return self._value;
 
-
-class AverageAlpha():
-    def __init__(self):
-        self._value = 0
-    
-    def __call__(self):
-        self._value += 1
-        return 1.0/self._value
-
-
-class LinearDecayEpsilon():
-    def __init__(self, initial_value=1.0):
-        self._value = initial_value
-    
-    def __call__(self):
-        current_value = self._value
-        self._value -= self._value/(self._value + 1)
-        return current_value
-        
-        
 class LearningAgent(Agent):
     """ An agent that learns to drive in the Smartcab world.
         This is the object you will be modifying. """ 
@@ -56,14 +26,6 @@ class LearningAgent(Agent):
         ## TO DO ##
         ###########
         # Set any additional class parameters as needed
-        self.F = dict()
-        self.E = dict()
-        for w in ['forward', 'left', 'right']:
-            for lt in ['red', 'green']: 
-                for o in Environment.valid_inputs['oncoming']:
-                    for l in Environment.valid_inputs['left']:
-                        for r in Environment.valid_inputs['right']:
-                            self.E[(w,lt,o,l,r)] = 1.0 
         
 
     def reset(self, destination=None, testing=False):
@@ -83,13 +45,9 @@ class LearningAgent(Agent):
         if testing:
             self.alpha = 0
             self.epsilon = 0
-        else:
-            #self.epsilon = 1.0 if self.epsilon == 0.0 else self.epsilon/(self.epsilon+1.0)  
+        else:  
             self.epsilon = self.epsilon - DELTA
-            #self.epsilon = max(self.E.values())
-            #self.epsilon = max(self.E.values())
-                
-
+            
         return None
 
     def build_state(self):
@@ -100,7 +58,7 @@ class LearningAgent(Agent):
         # Collect data about the environment
         waypoint = self.planner.next_waypoint() # The next waypoint 
         inputs = self.env.sense(self)           # Visual input - intersection light and traffic
-        deadline = self.env.get_deadline(self)  # Remaining deadline
+        #deadline = self.env.get_deadline(self)  # Remaining deadline
 
         ########### 
         ## TO DO ##
@@ -128,10 +86,9 @@ class LearningAgent(Agent):
         ## TO DO ##
         ###########
         # Calculate the maximum Q-value of all actions for a given state
-        action = max(self.Q[state], key=lambda a: self.Q[state][a])
-        maxQ = self.Q[state][action]
-
-        return action, maxQ 
+        maxQ = max(self.Q[state].values())
+        max_valued_actions = [a for a in self.Q[state].keys() if self.Q[state][a] == maxQ]
+        return max_valued_actions, maxQ 
 
 
     def createQ(self, state):
@@ -147,7 +104,6 @@ class LearningAgent(Agent):
         if self.learning:
             if not self.Q.has_key(state):
                 self.Q[state] = {a: 0.0 for a in self.valid_actions}
-                self.F[state] = {a: 0 for a in self.valid_actions}
                 
         return
 
@@ -172,23 +128,14 @@ class LearningAgent(Agent):
             action = random.choice(self.env.valid_actions)
             print "ACTION CHOOSE: randomly selected action {}".format(action)
         else:
-            #action = None
-            #epsilon = self.E[state]
             epsilon = self.epsilon
             if np.random.choice(a=[False, True], p=[max(0.0, epsilon), min(1.0, 1-epsilon)]):
-                action, maxQ = self.get_maxQ(state)
+                actions, maxQ = self.get_maxQ(state)
+                action = np.random.choice(actions) #if more than one action got maxQ value, then one of them is chosen randomly
                 print "ACTION CHOOSE: selected action {} with max Q-value {}".format(action, maxQ)
             else:
                 action = random.choice(self.env.valid_actions)
                 print "ACTION CHOOSE: randomly selected action {}".format(action)
-#                 if 0 in self.F[state].values():
-#                     action = self.F[state].keys()[self.F[state].values().index(0)]
-#                     print "ACTION CHOOSE: first time selected action {}".format(action)
-#                 else:   
-#                     action = random.choice(self.env.valid_actions)
-#                     print "ACTION CHOOSE: randomly selected action {}".format(action)
-#             self.F[state][action] += 1
-            #self.E[state] = self.E[state]/(self.E[state]+1)
             
         return action
 
@@ -266,7 +213,6 @@ def run():
     sim.run(n_test=100, tolerance=0.0001)
     
     print "Number of visited states: {}".format(len(agent.Q))
-    print "Min epsilon: {}, Max epsilon: {}".format(min(agent.E.values()), max(agent.E.values()))
 
 if __name__ == '__main__':
     run()
